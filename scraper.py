@@ -202,6 +202,7 @@ try:
                             
                             current_kw_projects.append({
                                 "Keyword Usada": kw,
+                                "Página": current_active_page,
                                 "ID Proyecto": project_id,
                                 "Título": title,
                                 "Universidad": university,
@@ -211,7 +212,7 @@ try:
                                 "Idioma": language,
                                 "Descripción": description
                             })
-                            print(f"  + Proyecto [{project_id}] registrado en {city} ({city_counts[matched_city]}/{MAX_PER_CITY_PER_KEYWORD} para '{kw}')")
+                            print(f"  + Proyecto [{project_id}] (Pág. {current_active_page}) registrado en {city} ({city_counts[matched_city]}/{MAX_PER_CITY_PER_KEYWORD} para '{kw}')")
 
                 except Exception:
                     continue
@@ -270,14 +271,15 @@ try:
 
             col_widths = {
                 'A': 22,  # Keyword Usada
-                'B': 14,  # ID
-                'C': 32,  # Título
-                'D': 28,  # Universidad
-                'E': 20,  # Campus
-                'F': 16,  # Provincia
-                'G': 22,  # Ciudad
-                'H': 14,  # Idioma
-                'I': 70   # Descripción
+                'B': 10,  # Página
+                'C': 14,  # ID
+                'D': 32,  # Título
+                'E': 28,  # Universidad
+                'F': 20,  # Campus
+                'G': 16,  # Provincia
+                'H': 22,  # Ciudad
+                'I': 14,  # Idioma
+                'J': 70   # Descripción
             }
 
             total_projects_count = 0
@@ -303,8 +305,8 @@ try:
                     cell.border = cell_border
 
                 # 3. Formatear las Filas de Datos (Fila 2 en adelante)
-                for row in worksheet.iter_rows(min_row=2, max_col=9, max_row=len(data_list)+1):
-                    prov_val = str(row[5].value).lower() if row[5].value else ""
+                for row in worksheet.iter_rows(min_row=2, max_col=10, max_row=len(data_list)+1):
+                    prov_val = str(row[6].value).lower() if row[6].value else ""  # Columna G es Provincia
                     
                     if "qu&eacute;bec" in prov_val or "quebec" in prov_val:
                         prov_fill = fill_quebec
@@ -327,7 +329,7 @@ try:
 
                 total_projects_count += len(data_list)
 
-        print(f"\n¡ÉXITO TOTAL! Se guardaron {total_projects_count} proyectos en '{excel_filename}'.")
+        print(f"\n¡ÉXITO TOTAL! Se guardaron {total_projects_count} proyectos  en '{excel_filename}'.")
     else:
         print("No se encontraron proyectos para las ciudades seleccionadas.")
 
