@@ -4,7 +4,7 @@ import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-from openpyxl.styles import Alignment, PatternFill
+from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 
 KEYWORDS_TO_SEARCH = [
     "Machine Learning",
@@ -43,7 +43,6 @@ try:
     driver.get("https://globalink.mitacs.ca/#/student/application/projects")
     time.sleep(8) 
 
-    # Diccionario para agrupar los datos por Palabra Clave (pestaña en Excel)
     projects_by_keyword = {}
     seen_ids = set()
 
@@ -79,7 +78,7 @@ try:
             except Exception as e_lang:
                 print(f"Nota: Ajustando filtro de Idioma a English: {e_lang}")
 
-            # C. Seleccionar 'Computer Science' en la disciplina y trasfondo académico
+            # C. Seleccionar 'Computer Science' en la disciplina
             try:
                 dropdowns = driver.find_elements(By.CSS_SELECTOR, "p-dropdown")
                 for dropdown in dropdowns[-2:]:
@@ -128,14 +127,13 @@ try:
                 print(f"¡Se alcanzaron 10 proyectos en al menos 3 ciudades! Pasando a la siguiente keyword...")
                 break
 
-            # 3. VERIFICACIÓN 1: Leer el número de página resaltado en el Paginator de PrimeNG
+            # 3. VERIFICACIÓN: Leer número de página resaltada
             try:
                 active_page_elem = driver.find_element(By.CSS_SELECTOR, ".p-paginator-page.p-highlight, .p-paginator-page.p-state-active")
                 current_active_page = active_page_elem.text.strip()
             except Exception:
                 current_active_page = str(page_num)
 
-            # Si le dimos clic a 'Siguiente' pero el número de página en la web NO cambió
             if current_active_page == previous_active_page and page_num > 1:
                 print(f"Fin real alcanzado automáticamente en la página {current_active_page} para '{kw}'. Se pasa al siguiente tema.")
                 break
@@ -183,7 +181,6 @@ try:
                         elif "Language:" in line:
                             language = line.replace("Language:", "").strip()
 
-                    # Validar idioma inglés por seguridad
                     if language and "english" not in language.lower():
                         continue
 
@@ -219,7 +216,6 @@ try:
                 except Exception:
                     continue
 
-            # VERIFICACIÓN 2: Si no hubo proyectos nuevos en 2 páginas consecutivas
             if new_projects_in_this_page == 0:
                 no_new_data_counter += 1
                 if no_new_data_counter >= 2 and page_num > 5:
@@ -228,7 +224,6 @@ try:
             else:
                 no_new_data_counter = 0
 
-            # VERIFICACIÓN 3: Avanzar a la siguiente página o romper si está deshabilitado
             try:
                 next_btn = driver.find_element(By.XPATH, "//button[contains(@class, 'p-paginator-next')]")
                 btn_class = next_btn.get_attribute("class") or ""
@@ -249,29 +244,40 @@ try:
             projects_by_keyword[kw] = current_kw_projects
 
     # -------------------------------------------------------------
-    # EXPORTAR A EXCEL CON PESTAÑAS Y COLORES PASTELES POR PROVINCIA
+    # EXPORTAR A EXCEL CON ESTILOS PERSONALIZADOS Y PESTAÑAS
     # -------------------------------------------------------------
     if projects_by_keyword:
         excel_filename = "mitacs_proyectos_ciudades_pastel.xlsx"
         
         with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
             
+            # Rellenos por provincia
             fill_quebec = PatternFill(start_color="D0E0E3", end_color="D0E0E3", fill_type="solid")   # Azul Claro
             fill_alberta = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")  # Verde Claro
             fill_ontario = PatternFill(start_color="F4CCCC", end_color="F4CCCC", fill_type="solid")  # Rosa Claro
             fill_other = PatternFill(start_color="F3F3F3", end_color="F3F3F3", fill_type="solid")
+            
+            # Estilos del encabezado
+            fill_header = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # Gris Claro
+            font_header = Font(name="Calibri", size=14, bold=True, color="000000")
+
+            # Bordes finos
+            thin_side = Side(border_style="thin", color="D3D3D3")
+            cell_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
+
             wrap_alignment = Alignment(wrap_text=True, vertical='top')
+            header_alignment = Alignment(wrap_text=True, vertical='center', horizontal='center')
 
             col_widths = {
-                'A': 20,  # Keyword Usada
-                'B': 12,  # ID
-                'C': 30,  # Título
-                'D': 25,  # Universidad
-                'E': 18,  # Campus
-                'F': 15,  # Provincia
-                'G': 20,  # Ciudad
-                'H': 12,  # Idioma
-                'I': 65   # Descripción
+                'A': 22,  # Keyword Usada
+                'B': 14,  # ID
+                'C': 32,  # Título
+                'D': 28,  # Universidad
+                'E': 20,  # Campus
+                'F': 16,  # Provincia
+                'G': 22,  # Ciudad
+                'H': 14,  # Idioma
+                'I': 70   # Descripción
             }
 
             total_projects_count = 0
@@ -285,28 +291,43 @@ try:
                 
                 worksheet = writer.sheets[sheet_title]
 
+                # 1. Aplicar anchos de columna
                 for col_letter, width in col_widths.items():
                     worksheet.column_dimensions[col_letter].width = width
 
+                # 2. Formatear la Fila de Encabezados (Fila 1)
+                for cell in worksheet[1]:
+                    cell.font = font_header
+                    cell.fill = fill_header
+                    cell.alignment = header_alignment
+                    cell.border = cell_border
+
+                # 3. Formatear las Filas de Datos (Fila 2 en adelante)
                 for row in worksheet.iter_rows(min_row=2, max_col=9, max_row=len(data_list)+1):
                     prov_val = str(row[5].value).lower() if row[5].value else ""
                     
                     if "qu&eacute;bec" in prov_val or "quebec" in prov_val:
-                        current_fill = fill_quebec
+                        prov_fill = fill_quebec
                     elif "alberta" in prov_val:
-                        current_fill = fill_alberta
+                        prov_fill = fill_alberta
                     elif "ontario" in prov_val:
-                        current_fill = fill_ontario
+                        prov_fill = fill_ontario
                     else:
-                        current_fill = fill_other
+                        prov_fill = fill_other
 
-                    for cell in row:
+                    for col_idx, cell in enumerate(row, start=1):
                         cell.alignment = wrap_alignment
-                        cell.fill = current_fill
+                        cell.border = cell_border
+                        
+                        # Columna A ("Keyword Usada"): Se deja sin color (None)
+                        if col_idx == 1:
+                            cell.fill = PatternFill(fill_type=None)
+                        else:
+                            cell.fill = prov_fill
 
                 total_projects_count += len(data_list)
 
-        print(f"\n¡ÉXITO TOTAL! Se guardaron {total_projects_count} proyectos distribuidos en {len(projects_by_keyword)} pestañas (Sheets) en '{excel_filename}'.")
+        print(f"\n¡ÉXITO TOTAL! Se guardaron {total_projects_count} proyectos en '{excel_filename}'.")
     else:
         print("No se encontraron proyectos para las ciudades seleccionadas.")
 
