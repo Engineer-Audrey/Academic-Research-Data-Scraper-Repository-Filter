@@ -6,6 +6,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from openpyxl.styles import Alignment, PatternFill, Font, Border, Side
 
+# Define the keywords to search in the Mitacs catalog
 KEYWORDS_TO_SEARCH = [
     "Machine Learning",
     "Artificial Intelligence",
@@ -15,31 +16,33 @@ KEYWORDS_TO_SEARCH = [
     "Data"
 ]
 
+# Target cities to match projects against
 TARGET_CITIES = [
-    "Montreal",   # Québec (Azul Claro Pastel)
-    "Calgary",    # Alberta (Verde Claro Pastel)
+    "Montreal",   # Québec (Light Pastel Blue)
+    "Calgary",    # Alberta (Light Pastel Green)
     "Edmonton",   # Alberta
-    "Ottawa",     # Ontario (Rosa Claro Pastel)
+    "Ottawa",     # Ontario (Light Pastel Pink)
     "Kingston",   # Ontario
     "London"      # Ontario
 ]
 
 MAX_PER_CITY_PER_KEYWORD = 10
 
+# Initialize Chrome Driver
 options = webdriver.ChromeOptions()
 driver = webdriver.Chrome(options=options)
 
 try:
-    print("Abriendo el portal de Mitacs Globalink...")
+    print("Opening Mitacs Globalink Portal...")
     driver.get("https://globalink.mitacs.ca/#/student/application/student-login")
     
     time.sleep(3)
-    print("Por favor realiza el login manual en la ventana de Chrome...")
-    print("Esperando 15 segundos para completar el login...")
+    print("Please log in manually in the opened Chrome window...")
+    print("Waiting 15 seconds to complete login...")
     time.sleep(15) 
 
-    # 1. Navegar al catálogo de proyectos
-    print("Navegando al catálogo de proyectos...")
+    # 1. Navigate to projects catalog
+    print("Navigating to projects catalog...")
     driver.get("https://globalink.mitacs.ca/#/student/application/projects")
     time.sleep(8) 
 
@@ -47,24 +50,24 @@ try:
     seen_ids = set()
 
     # -------------------------------------------------------------
-    # BUCLE DE BÚSQUEDA POR PALABRAS CLAVE
+    # KEYWORD SEARCH LOOP
     # -------------------------------------------------------------
     for kw in KEYWORDS_TO_SEARCH:
         print(f"\n=======================================================")
-        print(f"---> BUSCANDO PARA KEYWORD: '{kw}' (MÁX {MAX_PER_CITY_PER_KEYWORD} POR CIUDAD)")
+        print(f"---> SEARCHING FOR KEYWORD: '{kw}' (MAX {MAX_PER_CITY_PER_KEYWORD} PER CITY)")
         print(f"=======================================================")
-        print("💡 CONSEJO: Presiona la 'FLECHA DERECHA (->)' en cualquier momento para saltar al siguiente tema.")
+        print("💡 TIP: Press the 'RIGHT ARROW (->)' key at any time to skip to the next keyword.")
 
         current_kw_projects = []
 
         try:
-            # A. Escribir Keyword en Keyword search
+            # A. Enter keyword in Keyword search box
             search_box = driver.find_element(By.CSS_SELECTOR, "input.p-inputtext")
             search_box.clear()
             search_box.send_keys(kw)
             time.sleep(1)
 
-            # B. Seleccionar Idioma 'English'
+            # B. Select Language filter as 'English'
             try:
                 lang_dropdowns = driver.find_elements(By.XPATH, "//div[contains(., 'Language') and .//p-dropdown]")
                 if lang_dropdowns:
@@ -76,9 +79,9 @@ try:
                     option_eng.click()
                     time.sleep(1)
             except Exception as e_lang:
-                print(f"Nota: Ajustando filtro de Idioma a English: {e_lang}")
+                print(f"Note: Adjusting Language filter to English: {e_lang}")
 
-            # C. Seleccionar 'Computer Science' en la disciplina
+            # C. Select 'Computer Science' under academic discipline/background
             try:
                 dropdowns = driver.find_elements(By.CSS_SELECTOR, "p-dropdown")
                 for dropdown in dropdowns[-2:]:
@@ -96,7 +99,7 @@ try:
             except Exception:
                 pass
 
-            # D. Enviar búsqueda
+            # D. Submit search query
             try:
                 btn_search = driver.find_element(By.XPATH, "//button[contains(., 'Search and Filter')]")
                 btn_search.click()
@@ -106,7 +109,7 @@ try:
             time.sleep(6) 
 
         except Exception as e:
-            print(f"Error aplicando la keyword '{kw}': {e}")
+            print(f"Error applying keyword '{kw}': {e}")
             continue
 
         city_counts = {city.lower(): 0 for city in TARGET_CITIES}
@@ -115,19 +118,19 @@ try:
         no_new_data_counter = 0
 
         while True:
-            # 1. Detección manual con flecha derecha
+            # 1. Manual override check (Right Arrow key)
             if keyboard.is_pressed('right'):
-                print(f"\n[FLECHA DERECHA DETECTADA] Saltando '{kw}' a petición tuya...")
+                print(f"\n[RIGHT ARROW DETECTED] Skipping keyword '{kw}' as requested...")
                 time.sleep(1)
                 break
 
-            # 2. Parada si 3 ciudades alcanzaron el límite de 10 proyectos
+            # 2. Early stopping rule if 3 target cities reach the maximum quota
             cities_at_max = sum(1 for count in city_counts.values() if count >= MAX_PER_CITY_PER_KEYWORD)
             if cities_at_max >= 3:
-                print(f"¡Se alcanzaron 10 proyectos en al menos 3 ciudades! Pasando a la siguiente keyword...")
+                print(f"Quota reached (10 projects) in at least 3 target cities! Moving to next keyword...")
                 break
 
-            # 3. VERIFICACIÓN: Leer número de página resaltada
+            # 3. VERIFICATION 1: Active page reading from PrimeNG paginator
             try:
                 active_page_elem = driver.find_element(By.CSS_SELECTOR, ".p-paginator-page.p-highlight, .p-paginator-page.p-state-active")
                 current_active_page = active_page_elem.text.strip()
@@ -135,12 +138,12 @@ try:
                 current_active_page = str(page_num)
 
             if current_active_page == previous_active_page and page_num > 1:
-                print(f"Fin real alcanzado automáticamente en la página {current_active_page} para '{kw}'. Se pasa al siguiente tema.")
+                print(f"End of available pagination automatically reached at page {current_active_page} for '{kw}'.")
                 break
             
             previous_active_page = current_active_page
 
-            print(f"-> Analizando página real {current_active_page} para '{kw}'... Conteo por ciudad: {city_counts}")
+            print(f"-> Scraping real page {current_active_page} for '{kw}'... Current counts: {city_counts}")
 
             cards = driver.find_elements(By.XPATH, "//div[contains(., 'Project ID') and .//button[contains(text(), 'View Detail')]]")
             if not cards:
@@ -181,6 +184,7 @@ try:
                         elif "Language:" in line:
                             language = line.replace("Language:", "").strip()
 
+                    # Filter out non-English projects
                     if language and "english" not in language.lower():
                         continue
 
@@ -201,68 +205,70 @@ try:
                             new_projects_in_this_page += 1
                             
                             current_kw_projects.append({
-                                "Keyword Usada": kw,
-                                "Página": current_active_page,
-                                "ID Proyecto": project_id,
-                                "Título": title,
-                                "Universidad": university,
+                                "Keyword Used": kw,
+                                "Page": current_active_page,
+                                "Project ID": project_id,
+                                "Title": title,
+                                "University": university,
                                 "Campus": campus,
-                                "Provincia": province,
-                                "Ciudad": city,
-                                "Idioma": language,
-                                "Descripción": description
+                                "Province": province,
+                                "City": city,
+                                "Language": language,
+                                "Description": description
                             })
-                            print(f"  + Proyecto [{project_id}] (Pág. {current_active_page}) registrado en {city} ({city_counts[matched_city]}/{MAX_PER_CITY_PER_KEYWORD} para '{kw}')")
+                            print(f"  + Registered Project [{project_id}] (Page {current_active_page}) in {city} ({city_counts[matched_city]}/{MAX_PER_CITY_PER_KEYWORD} for '{kw}')")
 
                 except Exception:
                     continue
 
+            # VERIFICATION 2: Check for empty/repeated consecutive pages
             if new_projects_in_this_page == 0:
                 no_new_data_counter += 1
                 if no_new_data_counter >= 2 and page_num > 5:
-                    print(f"No se detectaron proyectos nuevos en 2 páginas consecutivas. Fin de paginación para '{kw}'.")
+                    print(f"No new projects detected for 2 consecutive pages. Stopping pagination for '{kw}'.")
                     break
             else:
                 no_new_data_counter = 0
 
+            # VERIFICATION 3: Click next page or break if disabled
             try:
                 next_btn = driver.find_element(By.XPATH, "//button[contains(@class, 'p-paginator-next')]")
                 btn_class = next_btn.get_attribute("class") or ""
                 is_disabled = next_btn.get_attribute("disabled") or next_btn.get_attribute("aria-disabled")
 
                 if "p-disabled" in btn_class or is_disabled == "true" or is_disabled is not None or not next_btn.is_enabled():
-                    print(f"El botón de 'Siguiente' está deshabilitado. Fin de paginación para '{kw}'.")
+                    print(f"'Next' button is disabled. Pagination complete for '{kw}'.")
                     break
                 else:
                     next_btn.click()
                     page_num += 1
                     time.sleep(4)
             except Exception:
-                print(f"No hay más botones de paginación para '{kw}'.")
+                print(f"No more pagination controls found for '{kw}'.")
                 break
 
         if current_kw_projects:
             projects_by_keyword[kw] = current_kw_projects
 
     # -------------------------------------------------------------
-    # EXPORTAR A EXCEL CON ESTILOS PERSONALIZADOS Y PESTAÑAS
+    # EXPORT TO EXCEL WITH CUSTOM STYLES & TABBED SHEETS
     # -------------------------------------------------------------
     if projects_by_keyword:
-        excel_filename = "mitacs_proyects.xlsx"
+        excel_filename = "mitacs_projects.xlsx"
         
         with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
             
-            # Rellenos por provincia
-            fill_quebec = PatternFill(start_color="D0E0E3", end_color="D0E0E3", fill_type="solid")   # Azul Claro
-            fill_alberta = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")  # Verde Claro
-            fill_ontario = PatternFill(start_color="F4CCCC", end_color="F4CCCC", fill_type="solid")  # Rosa Claro
+            # Fills by province (Pastel Colors)
+            fill_quebec = PatternFill(start_color="D0E0E3", end_color="D0E0E3", fill_type="solid")   # Pastel Light Blue
+            fill_alberta = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")  # Pastel Light Green
+            fill_ontario = PatternFill(start_color="F4CCCC", end_color="F4CCCC", fill_type="solid")  # Pastel Light Pink
             fill_other = PatternFill(start_color="F3F3F3", end_color="F3F3F3", fill_type="solid")
             
-            # Estilos del encabezado
-            fill_header = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # Gris Claro
+            # Header styles
+            fill_header = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # Light Gray
             font_header = Font(name="Calibri", size=14, bold=True, color="000000")
 
-            # Bordes finos
+            # Thin borders
             thin_side = Side(border_style="thin", color="D3D3D3")
             cell_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
@@ -270,43 +276,43 @@ try:
             header_alignment = Alignment(wrap_text=True, vertical='center', horizontal='center')
 
             col_widths = {
-                'A': 22,  # Keyword Usada
-                'B': 10,  # Página
-                'C': 14,  # ID
-                'D': 32,  # Título
-                'E': 28,  # Universidad
+                'A': 22,  # Keyword Used
+                'B': 10,  # Page
+                'C': 14,  # Project ID
+                'D': 32,  # Title
+                'E': 28,  # University
                 'F': 20,  # Campus
-                'G': 16,  # Provincia
-                'H': 22,  # Ciudad
-                'I': 14,  # Idioma
-                'J': 70   # Descripción
+                'G': 16,  # Province
+                'H': 22,  # City
+                'I': 14,  # Language
+                'J': 70   # Description
             }
 
             total_projects_count = 0
 
             for kw_name, data_list in projects_by_keyword.items():
                 df = pd.DataFrame(data_list)
-                df.sort_values(by=["Provincia", "Ciudad"], inplace=True)
+                df.sort_values(by=["Province", "City"], inplace=True)
                 
                 sheet_title = kw_name[:30].replace(":", "").replace("/", "")
                 df.to_excel(writer, index=False, sheet_name=sheet_title)
                 
                 worksheet = writer.sheets[sheet_title]
 
-                # 1. Aplicar anchos de columna
+                # 1. Apply column widths
                 for col_letter, width in col_widths.items():
                     worksheet.column_dimensions[col_letter].width = width
 
-                # 2. Formatear la Fila de Encabezados (Fila 1)
+                # 2. Format Header Row (Row 1)
                 for cell in worksheet[1]:
                     cell.font = font_header
                     cell.fill = fill_header
                     cell.alignment = header_alignment
                     cell.border = cell_border
 
-                # 3. Formatear las Filas de Datos (Fila 2 en adelante)
+                # 3. Format Data Rows (Row 2 onwards)
                 for row in worksheet.iter_rows(min_row=2, max_col=10, max_row=len(data_list)+1):
-                    prov_val = str(row[6].value).lower() if row[6].value else ""  # Columna G es Provincia
+                    prov_val = str(row[6].value).lower() if row[6].value else ""  # Column G is Province
                     
                     if "qu&eacute;bec" in prov_val or "quebec" in prov_val:
                         prov_fill = fill_quebec
@@ -321,7 +327,7 @@ try:
                         cell.alignment = wrap_alignment
                         cell.border = cell_border
                         
-                        # Columna A ("Keyword Usada"): Se deja sin color (None)
+                        # Column A ("Keyword Used"): Plain fill (None)
                         if col_idx == 1:
                             cell.fill = PatternFill(fill_type=None)
                         else:
@@ -329,9 +335,9 @@ try:
 
                 total_projects_count += len(data_list)
 
-        print(f"\n¡ÉXITO TOTAL! Se guardaron {total_projects_count} proyectos  en '{excel_filename}'.")
+        print(f"\nSUCCESS! Saved {total_projects_count} projects in '{excel_filename}'.")
     else:
-        print("No se encontraron proyectos para las ciudades seleccionadas.")
+        print("No projects found matching the selected cities.")
 
 finally:
     # driver.quit()
