@@ -248,7 +248,7 @@ try:
     # EXPORTAR A EXCEL CON ESTILOS PERSONALIZADOS Y PESTAÑAS
     # -------------------------------------------------------------
     if projects_by_keyword:
-        excel_filename = "mitacs_proyectos_ciudades_pastel.xlsx"
+        excel_filename = "mitacs_proyects.xlsx"
         
         with pd.ExcelWriter(excel_filename, engine='openpyxl') as writer:
             
