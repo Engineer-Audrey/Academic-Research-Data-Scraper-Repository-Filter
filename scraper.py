@@ -34,15 +34,6 @@ driver = webdriver.Chrome(options=options)
 
 try:
     print("Opening Mitacs Globalink Portal...")
-    driver.get("https://globalink.mitacs.ca/#/student/application/student-login")
-    
-    time.sleep(3)
-    print("Please log in manually in the opened Chrome window...")
-    print("Waiting 15 seconds to complete login...")
-    time.sleep(15) 
-
-    # 1. Navigate to projects catalog
-    print("Navigating to projects catalog...")
     driver.get("https://globalink.mitacs.ca/#/student/application/projects")
     time.sleep(8) 
 
@@ -166,6 +157,7 @@ try:
                     province = ""
                     city = ""
                     language = ""
+                    start_date = ""
                     description = ""
 
                     for i, line in enumerate(lines):
@@ -183,10 +175,20 @@ try:
                             city = line.replace("Project Location:", "").strip()
                         elif "Language:" in line:
                             language = line.replace("Language:", "").strip()
+                        elif "Preferred start" in line:
+                            start_date = line.replace("Preferred start date:", "").replace("Preferred start:", "").strip()
 
                     # Filter out non-English projects
                     if language and "english" not in language.lower():
                         continue
+
+                    # Enhanced Start Date Filter (Handles YYYY-05-DD, "May", "As soon as possible", or empty dates)
+                    if start_date:
+                        s_lower = start_date.lower()
+                        is_may = ("may" in s_lower) or ("-05-" in s_lower) or ("/05/" in s_lower) or s_lower.endswith("-05")
+                        is_asap = ("as soon as possible" in s_lower) or ("asp" in s_lower)
+                        if not (is_may or is_asap):
+                            continue
 
                     candidates = [l for l in lines if len(l) > 70 and not any(k in l for k in ["Faculty", "Project Location", "Language", "Preferred start", "Project ID"])]
                     if candidates:
@@ -207,6 +209,7 @@ try:
                             current_kw_projects.append({
                                 "Keyword Used": kw,
                                 "Page": current_active_page,
+                                "Start Date": start_date if start_date else "As soon as possible",
                                 "Project ID": project_id,
                                 "Title": title,
                                 "University": university,
@@ -216,7 +219,7 @@ try:
                                 "Language": language,
                                 "Description": description
                             })
-                            print(f"  + Registered Project [{project_id}] (Page {current_active_page}) in {city} ({city_counts[matched_city]}/{MAX_PER_CITY_PER_KEYWORD} for '{kw}')")
+                            print(f"  + Registered Project [{project_id}] (Page {current_active_page} | Start: {start_date or 'N/A'}) in {city} ({city_counts[matched_city]}/{MAX_PER_CITY_PER_KEYWORD} for '{kw}')")
 
                 except Exception:
                     continue
@@ -264,6 +267,9 @@ try:
             fill_ontario = PatternFill(start_color="F4CCCC", end_color="F4CCCC", fill_type="solid")  # Pastel Light Pink
             fill_other = PatternFill(start_color="F3F3F3", end_color="F3F3F3", fill_type="solid")
             
+            # Soft Pastel Highlight for Start Date (Pastel Light Yellow/Cream)
+            fill_start_date = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+
             # Header styles
             fill_header = PatternFill(start_color="D9D9D9", end_color="D9D9D9", fill_type="solid")  # Light Gray
             font_header = Font(name="Calibri", size=14, bold=True, color="000000")
@@ -278,14 +284,15 @@ try:
             col_widths = {
                 'A': 22,  # Keyword Used
                 'B': 10,  # Page
-                'C': 14,  # Project ID
-                'D': 32,  # Title
-                'E': 28,  # University
-                'F': 20,  # Campus
-                'G': 16,  # Province
-                'H': 22,  # City
-                'I': 14,  # Language
-                'J': 70   # Description
+                'C': 22,  # Start Date
+                'D': 14,  # Project ID
+                'E': 32,  # Title
+                'F': 28,  # University
+                'G': 20,  # Campus
+                'H': 16,  # Province
+                'I': 22,  # City
+                'J': 14,  # Language
+                'K': 70   # Description
             }
 
             total_projects_count = 0
@@ -311,8 +318,8 @@ try:
                     cell.border = cell_border
 
                 # 3. Format Data Rows (Row 2 onwards)
-                for row in worksheet.iter_rows(min_row=2, max_col=10, max_row=len(data_list)+1):
-                    prov_val = str(row[6].value).lower() if row[6].value else ""  # Column G is Province
+                for row in worksheet.iter_rows(min_row=2, max_col=11, max_row=len(data_list)+1):
+                    prov_val = str(row[7].value).lower() if row[7].value else ""  # Column H is Province
                     
                     if "qu&eacute;bec" in prov_val or "quebec" in prov_val:
                         prov_fill = fill_quebec
@@ -330,6 +337,9 @@ try:
                         # Column A ("Keyword Used"): Plain fill (None)
                         if col_idx == 1:
                             cell.fill = PatternFill(fill_type=None)
+                        # Column C ("Start Date"): Soft Highlight Pastel Yellow/Cream
+                        elif col_idx == 3:
+                            cell.fill = fill_start_date
                         else:
                             cell.fill = prov_fill
 
@@ -337,7 +347,7 @@ try:
 
         print(f"\nSUCCESS! Saved {total_projects_count} projects in '{excel_filename}'.")
     else:
-        print("No projects found matching the selected cities.")
+        print("No projects found matching the selected criteria.")
 
 finally:
     # driver.quit()
